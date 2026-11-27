@@ -135,9 +135,7 @@ class TugasModel extends Model
      */
     public function getRingkasanStatus(int $petugasId): array
     {
-        $db = db_connect();
-
-        $rows = $db->table($this->table)
+        $rows = $this->db->table($this->table)
             ->select('status, COUNT(*) AS jumlah')
             ->where('petugas_id', $petugasId)
             ->groupBy('status')
@@ -198,9 +196,7 @@ class TugasModel extends Model
      */
     public function getRiwayatStatus(int $laporanId): array
     {
-        $db = db_connect();
-
-        return $db->table('riwayat_status')
+        return $this->db->table('riwayat_status')
             ->select('riwayat_status.*, users.nama AS nama_pengubah, users.role AS role_pengubah')
             ->join('users', 'users.id = riwayat_status.user_id', 'left')
             ->where('riwayat_status.laporan_id', $laporanId)
