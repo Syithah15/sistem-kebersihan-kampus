@@ -1,69 +1,145 @@
-# CodeIgniter 4 Application Starter
+# Lapor Bersih Kampus
 
-## What is CodeIgniter?
+Sistem Pelaporan & Monitoring Kebersihan Kampus berbasis web. Aplikasi ini dikembangkan sebagai proyek besar mata kuliah **Rekayasa Perangkat Lunak (RPL)** oleh **Kelompok 5, Kelas AC**, menggunakan metode **Scrum** serta kolaborasi **Git & GitHub**.
 
-CodeIgniter is a PHP full-stack web framework that is light, fast, flexible and secure.
-More information can be found at the [official site](https://codeigniter.com).
+## Deskripsi
 
-This repository holds a composer-installable app starter.
-It has been built from the
-[development repository](https://github.com/codeigniter4/CodeIgniter4).
+**Lapor Bersih Kampus** membantu civitas kampus melaporkan masalah kebersihan lingkungan kampus dan memastikan laporan tersebut ditindaklanjuti. Aplikasi ini mencakup:
 
-More information about the plans for version 4 can be found in [CodeIgniter 4](https://forum.codeigniter.com/forumdisplay.php?fid=28) on the forums.
+- autentikasi pengguna (login/logout) sesuai peran,
+- pelaporan masalah kebersihan oleh pelapor,
+- penugasan dan tindak lanjut oleh petugas,
+- ringkasan dan monitoring oleh admin,
+- dashboard, peta sebaran lokasi, dan notifikasi.
 
-You can read the [user guide](https://codeigniter.com/user_guide/)
-corresponding to the latest version of the framework.
+## Fitur Utama
 
-## Installation & updates
+| User Story | Modul | Deskripsi |
+| --- | --- | --- |
+| US-1 | Autentikasi, Manajemen Pengguna & Database Migrations | Login/logout, pengelolaan pengguna, dan struktur database melalui migrations |
+| US-2 | Dokumentasi Proyek & Halaman Utama | README dan tata letak (layout) utama aplikasi |
+| US-3 | Modul Pelapor & Pengajuan Laporan | Pelapor membuat dan memantau laporan kebersihan kampus |
+| US-4 | Modul Petugas & Tindak Lanjut Tugas | Petugas melihat daftar tugas dan memperbarui status tindak lanjut |
+| US-5 | Modul Admin, Ringkasan & Monitoring | Admin melihat ringkasan laporan dan memonitor kinerja petugas |
+| US-6 | Modul Dashboard, Peta Sebaran & Notifikasi | Dashboard, peta sebaran lokasi, dan notifikasi |
 
-`composer create-project codeigniter4/appstarter` then `composer update` whenever
-there is a new release of the framework.
+## Peran Pengguna
 
-When updating, check the release notes to see if there are any changes you might need to apply
-to your `app` folder. The affected files can be copied or merged from
-`vendor/codeigniter4/framework/app`.
+- **Pelapor**: membuat dan memantau laporan kebersihan.
+- **Petugas**: melihat tugas dan menindaklanjuti laporan.
+- **Admin**: memantau ringkasan laporan dan kinerja petugas.
 
-## Setup
+## Teknologi
 
-Copy `env` to `.env` and tailor for your app, specifically the baseURL
-and any database settings.
+- PHP 8.2 atau lebih baru
+- CodeIgniter 4
+- MySQL (database: `lapor_bersih_kampus`)
+- Composer
+- Git & GitHub
 
-## Important Change with index.php
+## Persyaratan Sistem
 
-`index.php` is no longer in the root of the project! It has been moved inside the *public* folder,
-for better security and separation of components.
+- PHP 8.2 atau lebih baru (ekstensi `intl`, `mbstring`, dan `mysqlnd` aktif)
+- Composer
+- MySQL / MariaDB
+- Git
+- Disarankan memakai [Laragon](https://laragon.org/) di Windows
 
-This means that you should configure your web server to "point" to your project's *public* folder, and
-not to the project root. A better practice would be to configure a virtual host to point there. A poor practice would be to point your web server to the project root and expect to enter *public/...*, as the rest of your logic and the
-framework are exposed.
+## Cara Instalasi
 
-**Please** read the user guide for a better explanation of how CI4 works!
+1. **Clone repository**
 
-## Repository Management
+   ```bash
+   git clone https://github.com/Syithah15/sistem-kebersihan-kampus.git
+   cd sistem-kebersihan-kampus
+   ```
 
-We use GitHub issues, in our main repository, to track **BUGS** and to track approved **DEVELOPMENT** work packages.
-We use our [forum](http://forum.codeigniter.com) to provide SUPPORT and to discuss
-FEATURE REQUESTS.
+2. **Pasang dependensi**
 
-This repository is a "distribution" one, built by our release preparation script.
-Problems with it can be raised on our forum, or as issues in the main repository.
+   ```bash
+   composer install
+   ```
 
-## Server Requirements
+3. **Siapkan file environment**
 
-PHP version 8.2 or higher is required, with the following extensions installed:
+   Salin file `env` menjadi `.env`:
 
-- [intl](http://php.net/manual/en/intl.requirements.php)
-- [mbstring](http://php.net/manual/en/mbstring.installation.php)
+   ```bash
+   copy env .env
+   ```
 
-> [!WARNING]
-> - The end of life date for PHP 7.4 was November 28, 2022.
-> - The end of life date for PHP 8.0 was November 26, 2023.
-> - The end of life date for PHP 8.1 was December 31, 2025.
-> - If you are still using below PHP 8.2, you should upgrade immediately.
-> - The end of life date for PHP 8.2 will be December 31, 2026.
+   (di Linux/macOS: `cp env .env`)
 
-Additionally, make sure that the following extensions are enabled in your PHP:
+4. **Atur konfigurasi di `.env`**
 
-- json (enabled by default - don't turn it off)
-- [mysqlnd](http://php.net/manual/en/mysqlnd.install.php) if you plan to use MySQL
-- [libcurl](http://php.net/manual/en/curl.requirements.php) if you plan to use the HTTP\CURLRequest library
+   Hapus tanda `#` di depan baris yang dibutuhkan, lalu sesuaikan:
+
+   ```ini
+   CI_ENVIRONMENT = development
+
+   app.baseURL = 'http://localhost:8080/'
+
+   database.default.hostname = localhost
+   database.default.database = lapor_bersih_kampus
+   database.default.username = root
+   database.default.password = <password-mysql-kamu>
+   database.default.DBDriver = MySQLi
+   database.default.port = 3306
+   ```
+
+   > File `.env` bersifat pribadi dan **tidak boleh** di-push ke GitHub.
+
+5. **Buat database**
+
+   Buat database kosong bernama `lapor_bersih_kampus` di MySQL (lewat phpMyAdmin/HeidiSQL Laragon atau perintah berikut):
+
+   ```sql
+   CREATE DATABASE lapor_bersih_kampus;
+   ```
+
+6. **Jalankan migrations**
+
+   ```bash
+   php spark migrate
+   ```
+
+## Cara Menjalankan Aplikasi
+
+```bash
+php spark serve
+```
+
+Buka browser dan akses **http://localhost:8080/**.
+
+## Akun Demo
+
+Gunakan akun berikut untuk mencoba aplikasi:
+
+| Peran | Email | Password |
+| --- | --- | --- |
+| Pelapor | pelapor@test.com | password123 |
+| Petugas | petugas@test.com | password123 |
+
+> Akun ini hanya untuk keperluan pengembangan dan demo. Jangan dipakai di lingkungan produksi.
+
+## Anggota Tim (Kelompok 5)
+
+| Nama | Peran Scrum | User Story | Branch |
+| --- | --- | --- | --- |
+| Masyithah | Scrum Master | US-1: Autentikasi & Database Migrations | `fitur/us-1-auth` |
+| Muh. Dani Nugrah Ramadhan | Product Owner | US-2: Dokumentasi & Halaman Utama | `fitur/us-2-readme-layout` |
+| Fatimah Alya Shabirah | Developer 1 | US-3: Modul Pelapor | `fitur/us-3-pelapor` |
+| Reinaldi Novaldo | Developer 2 | US-4: Modul Petugas | `fitur/us-4-petugas` |
+| Nurul Aprilianti Arif | Developer 3 | US-5: Modul Admin & Monitoring | `fitur/us-5-admin-monitoring` |
+| Audryl Aulya Galo | Developer 4 | US-6: Dashboard, Peta Sebaran & Notifikasi | `fitur/us-6-dashboard-peta` |
+
+## Alur Kolaborasi Git
+
+- Setiap anggota bekerja di *branch* sendiri dengan format `fitur/<kode-us>-<nama-fitur>`.
+- **Tidak boleh** push langsung ke branch `main`.
+- Perubahan digabungkan melalui *Pull Request* yang di-*review* oleh satu rekan, lalu di-*merge* oleh Scrum Master.
+- Urutan merge: US-1 → US-2 → US-3 → US-4 → US-5 → US-6.
+
+## Lisensi
+
+Proyek ini dibuat untuk keperluan pembelajaran pada mata kuliah Rekayasa Perangkat Lunak dan menggunakan lisensi MIT (lihat file `LICENSE`).
