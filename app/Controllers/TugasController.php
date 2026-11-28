@@ -2,287 +2,280 @@
 
 namespace App\Controllers;
 
-use App\Models\TugasModel;
-
-/**
- * Controller TugasController
- *
- * Mengelola daftar tugas, detail tugas, dan pembaruan status tindak lanjut oleh petugas (US-4).
- */
 class TugasController extends BaseController
 {
-    protected $tugasModel;
-
-    public function __construct()
+    public function mulai($id)
     {
-        $this->tugasModel = new TugasModel();
+        if (!session()->get('isLoggedIn')) {
+            return redirect()->to('/');
+        }
+
+        if (session()->get('role') !== 'petugas') {
+            return redirect()->to('/');
+        }
+
+        $db = \Config\Database::connect();
+
+        try {
+            $db->transBegin();
+
+            $tugas = $db->query(
+                'SELECT * FROM tugas
+                 WHERE id = ? AND petugas_id = ?
+                 FOR UPDATE',
+                [$id, session()->get('user_id')]
+            )->getRowArray();
+
+            if (!$tugas) {
+                $db->transRollback();
+
+                return redirect()->to('/petugas/dashboard')
+                    ->with('error', 'Tugas tidak ditemukan atau bukan milik Anda.');
+            }
+
+            if ($tugas['status'] !== 'DITUGASKAN') {
+                $db->transRollback();
+
+                return redirect()->to('/petugas/dashboard')
+                    ->with('error', 'Tugas ini sudah dimulai atau tidak dapat dikerjakan.');
+            }
+
+            $db->table('tugas')
+                ->where('id', $id)
+                ->where('petugas_id', session()->get('user_id'))
+                ->where('status', 'DITUGASKAN')
+                ->update([
+                    'status' => 'DIKERJAKAN',
+                    'updated_at' => date('Y-m-d H:i:s'),
+                ]);
+
+            if ($db->affectedRows() !== 1) {
+                throw new \RuntimeException('Status tugas gagal diperbarui.');
+            }
+
+            if (!$db->transStatus()) {
+                throw new \RuntimeException('Transaksi database gagal.');
+            }
+
+            $db->transCommit();
+
+            return redirect()->to('/petugas/dashboard')
+                ->with('success', 'Tugas berhasil dimulai. Selamat bekerja!');
+
+        } catch (\Throwable $e) {
+            $db->transRollback();
+
+            log_message('error', 'Gagal memulai tugas: ' . $e->getMessage());
+
+            return redirect()->to('/petugas/dashboard')
+                ->with('error', 'Terjadi kesalahan saat memulai tugas.');
+        }
     }
 
-    /**
-     * Memeriksa otentikasi dan hak akses role petugas.
-     *
-     * @return \CodeIgniter\HTTP\RedirectResponse|null
-     */
-    protected function checkPetugas()
+    // Menampilkan formulir penyelesaian tugas
+    public function formSelesai($id)
     {
-        $session = session();
-
-        if (!$session->get('isLoggedIn')) {
-            return redirect()->to('/login')->with('error', 'Silakan login terlebih dahulu.');
+        if (!session()->get('isLoggedIn') ||
+            session()->get('role') !== 'petugas') {
+            return redirect()->to('/');
         }
 
-        if ($session->get('role') !== 'petugas') {
-            return redirect()->to('/dashboard')->with('error', 'Akses ditolak. Halaman ini hanya untuk petugas kebersihan.');
+        $db = \Config\Database::connect();
+
+        $tugas = $db->table('tugas')
+            ->select('tugas.*, laporan.judul, laporan.kategori')
+            ->join('laporan', 'laporan.id = tugas.laporan_id')
+            ->where('tugas.id', $id)
+            ->where('tugas.petugas_id', session()->get('user_id'))
+            ->get()
+            ->getRowArray();
+
+        if (!$tugas || $tugas['status'] !== 'DIKERJAKAN') {
+            return redirect()->to('/petugas/dashboard')
+                ->with('error', 'Tugas tidak ditemukan atau belum mulai dikerjakan.');
         }
 
-        return null;
-    }
-
-    /**
-     * Menampilkan daftar tugas milik petugas yang login dengan opsi filter status.
-     */
-    public function index()
-    {
-        if ($redirect = $this->checkPetugas()) {
-            return $redirect;
-        }
-
-        $petugasId = (int) session()->get('user_id');
-        $filterStatus = $this->request->getGet('status');
-
-        // Validasi filter status agar aman
-        $allowedStatus = ['DITUGASKAN', 'DIKERJAKAN', 'SELESAI', 'DIBATALKAN'];
-        if ($filterStatus && !in_array(strtoupper($filterStatus), $allowedStatus, true)) {
-            $filterStatus = null;
-        }
-
-        $daftarTugas = $this->tugasModel->getTugasByPetugas($petugasId, $filterStatus);
-        $ringkasan   = $this->tugasModel->getRingkasanStatus($petugasId);
-
-        return view('petugas/tugas_list', [
-            'judul'        => 'Daftar Tugas Saya',
-            'daftarTugas'  => $daftarTugas,
-            'ringkasan'    => $ringkasan,
-            'filterStatus' => $filterStatus ? strtoupper($filterStatus) : 'SEMUA',
+        return view('petugas/selesai_tugas', [
+            'tugas' => $tugas,
         ]);
     }
 
-    /**
-     * Menampilkan detail tugas beserta informasi laporan dan riwayat status.
-     *
-     * @param int $id ID tugas
-     */
-    public function detail($id)
+    // Menyimpan bukti dan menyelesaikan tugas
+    public function simpanSelesai($id)
     {
-        if ($redirect = $this->checkPetugas()) {
-            return $redirect;
+        if (!session()->get('isLoggedIn') ||
+            session()->get('role') !== 'petugas') {
+            return redirect()->to('/');
         }
 
-        $petugasId = (int) session()->get('user_id');
-        $tugas = $this->tugasModel->getDetailTugas((int) $id, $petugasId);
-
-        if (!$tugas) {
-            return redirect()->to('/petugas/tugas')
-                ->with('error', 'Tugas tidak ditemukan atau Anda tidak memiliki akses ke tugas ini.');
-        }
-
-        // Ambil riwayat status dari laporan terkait
-        $riwayat = $this->tugasModel->getRiwayatStatus((int) $tugas['laporan_id']);
-
-        return view('petugas/tugas_detail', [
-            'judul'   => 'Detail Tugas #' . $tugas['id'],
-            'tugas'   => $tugas,
-            'riwayat' => $riwayat,
-        ]);
-    }
-
-    /**
-     * Menampilkan halaman formulir pembaruan status tindak lanjut.
-     *
-     * @param int $id ID tugas
-     */
-    public function formUpdate($id)
-    {
-        if ($redirect = $this->checkPetugas()) {
-            return $redirect;
-        }
-
-        $petugasId = (int) session()->get('user_id');
-        $tugas = $this->tugasModel->getDetailTugas((int) $id, $petugasId);
-
-        if (!$tugas) {
-            return redirect()->to('/petugas/tugas')
-                ->with('error', 'Tugas tidak ditemukan atau Anda tidak memiliki akses ke tugas ini.');
-        }
-
-        return view('petugas/form_update', [
-            'judul'  => 'Tindak Lanjuti Tugas #' . $tugas['id'],
-            'tugas'  => $tugas,
-            'errors' => session()->getFlashdata('errors') ?? [],
-        ]);
-    }
-
-    /**
-     * Memproses pembaruan status tindak lanjut, catatan, dan foto bukti.
-     *
-     * @param int $id ID tugas
-     */
-    public function updateStatus($id)
-    {
-        if ($redirect = $this->checkPetugas()) {
-            return $redirect;
-        }
-
-        $petugasId = (int) session()->get('user_id');
-        $tugas = $this->tugasModel->getDetailTugas((int) $id, $petugasId);
-
-        if (!$tugas) {
-            return redirect()->to('/petugas/tugas')
-                ->with('error', 'Tugas tidak ditemukan atau Anda tidak memiliki akses ke tugas ini.');
-        }
-
-        // Aturan validasi form
-        $rules = [
-            'status'       => 'required|in_list[DITUGASKAN,DIKERJAKAN,SELESAI,DIBATALKAN]',
-            'catatan'      => 'permit_empty|string|max_length[1000]',
-            'foto_sebelum' => 'permit_empty|is_image[foto_sebelum]|mime_in[foto_sebelum,image/jpg,image/jpeg,image/png,image/webp]|max_size[foto_sebelum,2048]',
-            'foto_sesudah' => 'permit_empty|is_image[foto_sesudah]|mime_in[foto_sesudah,image/jpg,image/jpeg,image/png,image/webp]|max_size[foto_sesudah,2048]',
-        ];
-
-        $messages = [
-            'status' => [
-                'required' => 'Status tindak lanjut wajib dipilih.',
-                'in_list'  => 'Status yang dipilih tidak valid.',
-            ],
-            'catatan' => [
-                'max_length' => 'Catatan maksimal 1000 karakter.',
-            ],
+        $aturan = [
             'foto_sebelum' => [
-                'is_image' => 'File foto sebelum harus berupa gambar.',
-                'mime_in'  => 'Format gambar foto sebelum harus JPG, JPEG, PNG, atau WEBP.',
-                'max_size' => 'Ukuran foto sebelum maksimal 2 MB.',
+                'label' => 'Foto sebelum dibersihkan',
+                'rules' => 'uploaded[foto_sebelum]|is_image[foto_sebelum]|max_size[foto_sebelum,2048]',
             ],
             'foto_sesudah' => [
-                'is_image' => 'File foto sesudah harus berupa gambar.',
-                'mime_in'  => 'Format gambar foto sesudah harus JPG, JPEG, PNG, atau WEBP.',
-                'max_size' => 'Ukuran foto sesudah maksimal 2 MB.',
+                'label' => 'Foto sesudah dibersihkan',
+                'rules' => 'uploaded[foto_sesudah]|is_image[foto_sesudah]|max_size[foto_sesudah,2048]',
+            ],
+            'catatan' => [
+                'label' => 'Catatan',
+                'rules' => 'permit_empty|max_length[1000]',
             ],
         ];
 
-        if (!$this->validate($rules, $messages)) {
+        if (!$this->validate($aturan)) {
             return redirect()->back()
                 ->withInput()
                 ->with('errors', $this->validator->getErrors());
         }
 
-        $statusBaru   = strtoupper($this->request->getPost('status'));
-        $catatanBaru  = trim((string) $this->request->getPost('catatan'));
-        $statusLama   = $tugas['status'];
+        $fotoSebelum = $this->request->getFile('foto_sebelum');
+        $fotoSesudah = $this->request->getFile('foto_sesudah');
 
-        $updateData = [
-            'status'  => $statusBaru,
-            'catatan' => $catatanBaru !== '' ? $catatanBaru : $tugas['catatan'],
+        $mimeDiizinkan = [
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/webp' => 'webp',
         ];
 
-        // Kelola waktu pengerjaan otomatis
-        $sekarang = date('Y-m-d H:i:s');
-        if ($statusBaru === 'DIKERJAKAN' && empty($tugas['waktu_diambil'])) {
-            $updateData['waktu_diambil'] = $sekarang;
-        }
-
-        if ($statusBaru === 'SELESAI' && empty($tugas['waktu_selesai'])) {
-            $updateData['waktu_selesai'] = $sekarang;
-            if (empty($tugas['waktu_diambil'])) {
-                $updateData['waktu_diambil'] = $sekarang;
+        foreach ([$fotoSebelum, $fotoSesudah] as $foto) {
+            if (!$foto->isValid() ||
+                !isset($mimeDiizinkan[$foto->getMimeType()])) {
+                return redirect()->back()
+                    ->withInput()
+                    ->with('error', 'Foto harus berformat JPG, PNG, atau WEBP.');
             }
         }
 
-        // Direktori penyimpanan bukti foto
-        $uploadDir = FCPATH . 'uploads/tugas/';
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0755, true);
+        $db = \Config\Database::connect();
+        $folder = WRITEPATH . 'uploads/tugas/';
+
+        if (!is_dir($folder) &&
+            !mkdir($folder, 0755, true) &&
+            !is_dir($folder)) {
+            return redirect()->back()
+                ->with('error', 'Folder penyimpanan foto tidak dapat dibuat.');
         }
 
-        // Proses unggah foto_sebelum
-        $fileSebelum = $this->request->getFile('foto_sebelum');
-        if ($fileSebelum && $fileSebelum->isValid() && !$fileSebelum->hasMoved()) {
-            $namaSebelum = $fileSebelum->getRandomName();
-            $fileSebelum->move($uploadDir, $namaSebelum);
-            $updateData['foto_sebelum'] = $namaSebelum;
-        }
+        $namaFotoSebelum = 'sebelum_' . bin2hex(random_bytes(12)) .
+            '.' . $mimeDiizinkan[$fotoSebelum->getMimeType()];
 
-        // Proses unggah foto_sesudah
-        $fileSesudah = $this->request->getFile('foto_sesudah');
-        if ($fileSesudah && $fileSesudah->isValid() && !$fileSesudah->hasMoved()) {
-            $namaSesudah = $fileSesudah->getRandomName();
-            $fileSesudah->move($uploadDir, $namaSesudah);
-            $updateData['foto_sesudah'] = $namaSesudah;
-        }
+        $namaFotoSesudah = 'sesudah_' . bin2hex(random_bytes(12)) .
+            '.' . $mimeDiizinkan[$fotoSesudah->getMimeType()];
 
-        $db = db_connect();
-        $db->transStart();
+        $pathSebelum = $folder . $namaFotoSebelum;
+        $pathSesudah = $folder . $namaFotoSesudah;
 
-        // 1. Perbarui data tabel tugas
-        $this->tugasModel->update((int) $id, $updateData);
+        try {
+            $fotoSebelum->move($folder, $namaFotoSebelum);
+            $fotoSesudah->move($folder, $namaFotoSesudah);
 
-        // 2. Sinkronisasi status pada tabel laporan
-        // Pemetaan status tugas ke status laporan
-        $mapLaporanStatus = [
-            'DITUGASKAN' => 'MENUNGGU',
-            'DIKERJAKAN' => 'DIPROSES',
-            'SELESAI'    => 'SELESAI',
-            'DIBATALKAN' => 'DIBATALKAN',
-        ];
-        $laporanStatusBaru = $mapLaporanStatus[$statusBaru] ?? 'DIPROSES';
-        $laporanStatusLama = $tugas['laporan_status'];
+            $db->transBegin();
 
-        $db->table('laporan')
-            ->where('id', (int) $tugas['laporan_id'])
-            ->update([
-                'status'     => $laporanStatusBaru,
-                'updated_at' => $sekarang,
-            ]);
+            $tugas = $db->query(
+                'SELECT * FROM tugas
+                 WHERE id = ? AND petugas_id = ?
+                 FOR UPDATE',
+                [$id, session()->get('user_id')]
+            )->getRowArray();
 
-        // 3. Catat riwayat perubahan ke tabel riwayat_status jika status berubah atau ada catatan
-        if ($statusLama !== $statusBaru || $laporanStatusLama !== $laporanStatusBaru || $catatanBaru !== '') {
-            $keteranganRiwayat = $catatanBaru !== ''
-                ? $catatanBaru
-                : 'Petugas memperbarui status tugas menjadi ' . $statusBaru . ' (Laporan: ' . $laporanStatusBaru . ')';
+            if (!$tugas || $tugas['status'] !== 'DIKERJAKAN') {
+                throw new \RuntimeException(
+                    'Tugas tidak ditemukan atau sudah diselesaikan.'
+                );
+            }
 
+            $laporan = $db->query(
+                'SELECT * FROM laporan WHERE id = ? FOR UPDATE',
+                [$tugas['laporan_id']]
+            )->getRowArray();
+
+            if (!$laporan || $laporan['status'] !== 'DIPROSES') {
+                throw new \RuntimeException(
+                    'Status laporan tidak sesuai.'
+                );
+            }
+
+            $waktuSelesai = date('Y-m-d H:i:s');
+
+            // Perbarui data tugas
+            $db->table('tugas')
+                ->where('id', $id)
+                ->where('petugas_id', session()->get('user_id'))
+                ->where('status', 'DIKERJAKAN')
+                ->update([
+                    'status' => 'SELESAI',
+                    'waktu_selesai' => $waktuSelesai,
+                    'foto_sebelum' => $namaFotoSebelum,
+                    'foto_sesudah' => $namaFotoSesudah,
+                    'catatan' => trim((string) $this->request->getPost('catatan')),
+                    'updated_at' => $waktuSelesai,
+                ]);
+
+            if ($db->affectedRows() !== 1) {
+                throw new \RuntimeException('Data tugas gagal diperbarui.');
+            }
+
+            // Perbarui status laporan
+            $db->table('laporan')
+                ->where('id', $tugas['laporan_id'])
+                ->where('status', 'DIPROSES')
+                ->update([
+                    'status' => 'SELESAI',
+                    'updated_at' => $waktuSelesai,
+                ]);
+
+            if ($db->affectedRows() !== 1) {
+                throw new \RuntimeException('Status laporan gagal diperbarui.');
+            }
+
+            // Simpan riwayat perubahan status
             $db->table('riwayat_status')->insert([
-                'laporan_id'        => (int) $tugas['laporan_id'],
-                'user_id'           => $petugasId,
-                'status_sebelumnya' => $laporanStatusLama,
-                'status_baru'       => $laporanStatusBaru,
-                'keterangan'        => $keteranganRiwayat,
-                'created_at'        => $sekarang,
+                'laporan_id' => $tugas['laporan_id'],
+                'user_id' => session()->get('user_id'),
+                'status_sebelumnya' => 'DIPROSES',
+                'status_baru' => 'SELESAI',
+                'keterangan' => 'Pekerjaan kebersihan telah diselesaikan oleh petugas.',
+                'created_at' => $waktuSelesai,
             ]);
-        }
 
-        // 4. Buat notifikasi untuk pelapor jika ada pelapor terkait
-        $laporanRow = $db->table('laporan')->where('id', (int) $tugas['laporan_id'])->get()->getRowArray();
-        if ($laporanRow && !empty($laporanRow['user_id'])) {
+            // Kirim notifikasi kepada pelapor
             $db->table('notifikasi')->insert([
-                'user_id'    => (int) $laporanRow['user_id'],
-                'laporan_id' => (int) $tugas['laporan_id'],
-                'judul'      => 'Pembaruan Tugas: ' . substr($tugas['laporan_judul'], 0, 100),
-                'pesan'      => 'Laporan "' . $tugas['laporan_judul'] . '" telah diperbarui oleh petugas ke status ' . $statusBaru . '.',
-                'tipe'       => 'status_tugas',
-                'is_read'    => 0,
-                'created_at' => $sekarang,
-                'updated_at' => $sekarang,
+                'user_id' => $laporan['user_id'],
+                'laporan_id' => $tugas['laporan_id'],
+                'judul' => 'Laporan Telah Selesai',
+                'pesan' => 'Laporan Anda telah selesai ditangani oleh petugas.',
+                'tipe' => 'status',
+                'is_read' => 0,
+                'created_at' => $waktuSelesai,
+                'updated_at' => $waktuSelesai,
             ]);
-        }
 
-        $db->transComplete();
+            if (!$db->transStatus()) {
+                throw new \RuntimeException('Transaksi database gagal.');
+            }
 
-        if ($db->transStatus() === false) {
+            $db->transCommit();
+
+            return redirect()->to('/petugas/dashboard')
+                ->with('success', 'Tugas berhasil diselesaikan!');
+
+        } catch (\Throwable $e) {
+            $db->transRollback();
+
+            if (is_file($pathSebelum)) {
+                unlink($pathSebelum);
+            }
+
+            if (is_file($pathSesudah)) {
+                unlink($pathSesudah);
+            }
+
+            log_message('error', 'Gagal menyelesaikan tugas: ' . $e->getMessage());
+
             return redirect()->back()
                 ->withInput()
-                ->with('error', 'Terjadi kesalahan saat menyimpan data. Silakan coba lagi.');
+                ->with('error', 'Tugas gagal diselesaikan. Silakan coba kembali.');
         }
-
-        return redirect()->to('/petugas/tugas/' . $id)
-            ->with('success', 'Status tugas berhasil diperbarui menjadi ' . $statusBaru . '.');
     }
 }
