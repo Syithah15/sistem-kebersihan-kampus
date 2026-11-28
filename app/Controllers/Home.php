@@ -6,8 +6,6 @@ class Home extends BaseController
 {
     public function index(): string
     {
-        return view('home', [
-            'judul' => 'Beranda | Lapor Bersih Kampus',
-        ]);
+        return view('welcome_message');
     }
 }
