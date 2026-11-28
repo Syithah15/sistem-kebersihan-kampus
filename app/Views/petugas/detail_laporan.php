@@ -20,7 +20,7 @@
            class="btn btn-outline-secondary">
 
             <i class="bi bi-arrow-left"></i>
-            KEMBALI
+            kembali
 
         </a>
 
