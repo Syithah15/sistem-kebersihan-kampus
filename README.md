@@ -33,7 +33,7 @@ Sistem Pelaporan & Monitoring Kebersihan Kampus berbasis web. Aplikasi ini dikem
 
 - PHP 8.2 atau lebih baru
 - CodeIgniter 4
-- MySQL (database: `sistem-kebersihan-kampus`)
+- MySQL (database: `sistem_kebersihan_kampus`)
 - Composer
 - Git & GitHub
 
@@ -80,7 +80,7 @@ Sistem Pelaporan & Monitoring Kebersihan Kampus berbasis web. Aplikasi ini dikem
    app.baseURL = 'http://localhost:8080/'
 
    database.default.hostname = localhost
-   database.default.database = sistem-kebersihan-kampus
+   database.default.database = sistem_kebersihan_kampus
    database.default.username = root
    database.default.password = <password-mysql-kamu>
    database.default.DBDriver = MySQLi
@@ -91,10 +91,10 @@ Sistem Pelaporan & Monitoring Kebersihan Kampus berbasis web. Aplikasi ini dikem
 
 5. **Buat database**
 
-   Buat database kosong bernama `sistem-kebersihan-kampus` di MySQL (lewat phpMyAdmin/HeidiSQL Laragon atau perintah berikut):
+   Buat database kosong bernama `sistem_kebersihan_kampus` di MySQL (lewat phpMyAdmin/HeidiSQL Laragon atau perintah berikut):
 
    ```sql
-   CREATE DATABASE `sistem-kebersihan-kampus`;
+   CREATE DATABASE sistem_kebersihan_kampus;
    ```
 
 6. **Jalankan migrations**
