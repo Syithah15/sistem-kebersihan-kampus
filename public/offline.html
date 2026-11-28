@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Sedang Offline - Lapor Bersih Kampus</title>
+
+    <meta name="theme-color" content="#198754">
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #f5f7f5;
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        .offline-card {
+            background: #ffffff;
+            padding: 40px 30px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            max-width: 450px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .offline-icon {
+            font-size: 65px;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            color: #198754;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        p {
+            color: #6c757d;
+            line-height: 1.6;
+        }
+
+        .btn {
+            display: inline-block;
+            background-color: #198754;
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 22px;
+            margin-top: 15px;
+            font-size: 15px;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background-color: #146c43;
+        }
+
+        .footer {
+            margin-top: 25px;
+            color: #6c757d;
+            font-size: 13px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="offline-card">
+
+        <div class="offline-icon">📡</div>
+
+        <h2>Kamu Sedang Offline</h2>
+
+        <p>
+            Sepertinya koneksi internet kamu sedang terputus.
+            Jangan khawatir, Lapor Bersih Kampus akan kembali
+            bisa digunakan setelah koneksi internet tersedia.
+        </p>
+
+        <button class="btn" onclick="window.location.reload()">
+            Coba Hubungkan Kembali
+        </button>
+
+        <div class="footer">
+            Lapor Bersih Kampus
+        </div>
+
+    </div>
+
+</body>
+
+</html>

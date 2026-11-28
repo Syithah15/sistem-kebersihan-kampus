@@ -1,0 +1,27 @@
+{
+    "id": "/",
+    "name": "Lapor Bersih Kampus",
+    "short_name": "Lapor Bersih",
+    "description": "Sistem Pelaporan Kebersihan Kampus",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#f5f7f5",
+    "theme_color": "#198754",
+    "lang": "id",
+    "icons": [
+        {
+            "src": "/assets/icons/icon-besar-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/assets/icons/icon-besar-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        }
+    ]
+}
