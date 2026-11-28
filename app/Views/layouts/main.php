@@ -1,26 +1,23 @@
 <?php
-$isLoggedIn = session()->get('isLoggedIn');
-$role       = session()->get('role');
-$nama       = session()->get('nama');
+$role = session()->get('role');
+$nama = session()->get('nama');
+$userId = session()->get('user_id');
 
-// Alamat dashboard dan menu per peran.
-// Jika nama route di Routes.php berbeda, cukup ubah bagian ini.
-$urlDashboard = [
-    'pelapor' => '/pelapor/dashboard',
-    'petugas' => '/petugas/dashboard',
-    'admin'   => '/admin/dashboard',
-];
+$jumlahNotifikasiBelumDibaca = 0;
 
-$menuPeran = [
-    'pelapor' => [
-        ['url' => '/pelapor/laporan/buat', 'ikon' => 'bi-plus-circle', 'label' => 'Buat Laporan'],
-    ],
-    'petugas' => [],
-    'admin'   => [
-        ['url' => '/admin/laporan', 'ikon' => 'bi-clipboard-data', 'label' => 'Rekap Laporan'],
-    ],
-];
+if ($userId) {
+    try {
+        $jumlahNotifikasiBelumDibaca = \Config\Database::connect()
+            ->table('notifikasi')
+            ->where('user_id', $userId)
+            ->where('is_read', 0)
+            ->countAllResults();
+    } catch (\Throwable $e) {
+        $jumlahNotifikasiBelumDibaca = 0;
+    }
+}
 ?>
+
 <!DOCTYPE html>
 <html lang="id">
 
@@ -29,6 +26,10 @@ $menuPeran = [
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title><?= esc($judul ?? 'Lapor Bersih Kampus') ?></title>
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#198754">
 
     <!-- Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -99,37 +100,76 @@ $menuPeran = [
                 aria-controls="navbarUtama"
                 aria-expanded="false"
                 aria-label="Toggle navigation">
+
                 <span class="navbar-toggler-icon"></span>
             </button>
 
             <div class="collapse navbar-collapse" id="navbarUtama">
 
-                <?php if ($isLoggedIn): ?>
+                <?php if (session()->get('isLoggedIn')): ?>
 
                     <ul class="navbar-nav me-auto mb-2 mb-lg-0">
 
-                        <?php if (isset($urlDashboard[$role])): ?>
-                            <li class="nav-item">
-                                <a class="nav-link" href="<?= esc($urlDashboard[$role]) ?>">
+                        <!-- Dashboard -->
+                        <li class="nav-item">
+                            <?php if ($role === 'pelapor'): ?>
+                                <a class="nav-link" href="/pelapor/dashboard">
                                     <i class="bi bi-speedometer2 me-1"></i>
                                     Dashboard
+                                </a>
+                            <?php elseif ($role === 'petugas'): ?>
+                                <a class="nav-link" href="/petugas/dashboard">
+                                    <i class="bi bi-speedometer2 me-1"></i>
+                                    Dashboard
+                                </a>
+                            <?php elseif ($role === 'admin'): ?>
+                                <a class="nav-link" href="/admin/dashboard">
+                                    <i class="bi bi-speedometer2 me-1"></i>
+                                    Dashboard
+                                </a>
+                            <?php endif; ?>
+                        </li>
+
+                        <!-- Menu Pelapor -->
+                        <?php if ($role === 'pelapor'): ?>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/pelapor/laporan/buat">
+                                    <i class="bi bi-plus-circle me-1"></i>
+                                    Buat Laporan
                                 </a>
                             </li>
                         <?php endif; ?>
 
-                        <?php foreach (($menuPeran[$role] ?? []) as $menu): ?>
+                        <!-- Menu Admin -->
+                        <?php if ($role === 'admin'): ?>
+
                             <li class="nav-item">
-                                <a class="nav-link" href="<?= esc($menu['url']) ?>">
-                                    <i class="bi <?= esc($menu['ikon']) ?> me-1"></i>
-                                    <?= esc($menu['label']) ?>
+                                <a class="nav-link" href="/admin/laporan">
+                                    <i class="bi bi-clipboard-data me-1"></i>
+                                    Rekap Laporan
                                 </a>
                             </li>
-                        <?php endforeach; ?>
 
+                            <li class="nav-item">
+                                <a class="nav-link" href="/admin/peta-laporan">
+                                    <i class="bi bi-map me-1"></i>
+                                    Peta Laporan
+                                </a>
+                            </li>
+
+                        <?php endif; ?>
+
+                        <!-- Notifikasi -->
                         <li class="nav-item">
                             <a class="nav-link" href="/notifikasi">
                                 <i class="bi bi-bell me-1"></i>
                                 Notifikasi
+
+                                <?php if ($jumlahNotifikasiBelumDibaca > 0): ?>
+                                    <span class="badge bg-danger">
+                                        <?= $jumlahNotifikasiBelumDibaca ?>
+                                    </span>
+                                <?php endif; ?>
                             </a>
                         </li>
 
@@ -137,6 +177,7 @@ $menuPeran = [
 
                     <!-- Informasi Pengguna -->
                     <div class="d-flex align-items-center gap-3">
+
                         <span class="text-white">
                             <i class="bi bi-person-circle me-1"></i>
                             <?= esc($nama ?? 'Pengguna') ?>
@@ -149,15 +190,7 @@ $menuPeran = [
                                 Keluar
                             </button>
                         </form>
-                    </div>
 
-                <?php else: ?>
-
-                    <div class="ms-auto">
-                        <a href="/login" class="btn btn-outline-light btn-sm">
-                            <i class="bi bi-box-arrow-in-right me-1"></i>
-                            Masuk
-                        </a>
                     </div>
 
                 <?php endif; ?>
@@ -180,6 +213,27 @@ $menuPeran = [
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Registrasi Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function () {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(function (registration) {
+                        console.log(
+                            'Service Worker berhasil didaftarkan:',
+                            registration.scope
+                        );
+                    })
+                    .catch(function (error) {
+                        console.error(
+                            'Service Worker gagal didaftarkan:',
+                            error
+                        );
+                    });
+            });
+        }
+    </script>
 
     <?= $this->renderSection('scripts') ?>
 
